@@ -5,7 +5,7 @@ import os
 load_dotenv()
 
 max_results = 10
-result_max_characters = 5000
+max_characters_per_result = 2000
 
 SERP_STRING = "serpapi:"
 
@@ -27,18 +27,30 @@ def input_modifier(inputstring, state):
       results = search.get_dict()
       # print(f"RAW RESULTS:\n\n{str(results)}\n\n")
 
-      count = 0
-      texts = initial_prompt + "\nFor context: "
+      snippets = [result['snippet'] for result in results['organic_results']]
+      highlights = [result['snippet_highlighted_words'] for result in results['organic_results']]
 
-      for result in results['organic_results']:
+      count = 0
+      texts = "For context: "
+
+      for snippet in snippets:
           try:
               if count <= max_results:
-                  texts += f"\n{result['snippet']}"
+                  texts += f"\n{snippet[0:max_characters_per_result]}"
                   count += 1
           except:
               continue
-      texts = texts[:result_max_characters]
-      print(texts)
+          
+      texts += "\nContext highlights:"
+      for highlight in highlights:
+          try:
+              texts += f"\n{highlight[0:max_characters_per_result]}"
+          except:
+              continue
+          
+      texts += f"\nGiven that context, {initial_prompt}"
+
+      # print(texts)
 
       return texts
     else:
