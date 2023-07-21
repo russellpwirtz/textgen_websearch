@@ -42,6 +42,8 @@ def input_modifier(input, state):
     else:
       return input
     
+    print(f"Starting web search! Original input string:\n{input}")
+    
     start_search = inputstring.find(serp_string)
     searchstring = inputstring[start_search+len(serp_string):].strip()
     initial_prompt = inputstring[0:start_search]
@@ -73,7 +75,7 @@ def input_modifier(input, state):
       response = requests.get(result_url, headers=headers)
       soup = BeautifulSoup(response.content, 'html.parser')
       web_raw = soup.get_text().strip().replace('\n', ' ').replace('\r', '').replace('\t', '')
-      web_clean = call_llm(get_clean_prompt(web_raw), state)
+      web_clean = call_llm(get_clean_prompt(initial_prompt, web_raw), state)
       web_context = web_context + web_clean + '\n'
       count += 1
 
@@ -87,14 +89,17 @@ def input_modifier(input, state):
 
     return texts
 
-def get_clean_prompt(webpage_content: str) -> str:
+def get_clean_prompt(question: str, webpage_content: str) -> str:
     webpage_content = webpage_content[0:max_characters_per_result]
     review_prompt = f'''
-### Instruction: You are a summarization bot.
-### Content: {webpage_content}
-### User: The above is content scraped from a webpage using serpapi. 
-Please provide the important content, removing the additional cruft associated with webpage content?
-If the input is nonsensical, just give an empty reply.
+### Instruction: You are a cleaner bot, to prepare content scraped from a website. 
+You do NOT answer the question. Simply clean all of the original content.
+Keep any and all details, especially ones that may be relevant for follow-up questions.
+Provide all important content; simply clean the cruft associated with web page content and remove unnecessary whitespace.
+If the input content is nonsensical, just give an empty reply.\n
+Website content: {webpage_content}\n
+The extra important parts to keep are related to the question: {question}.
+### User: Please prepare the website content in full detail?
 ### Response: '''
     return review_prompt
 
