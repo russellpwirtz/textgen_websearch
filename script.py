@@ -11,13 +11,14 @@ from serpapi import GoogleSearch
 
 from dotenv import load_dotenv
 import os
-from modules.text_generation import generate_reply
 load_dotenv()
 import requests
 from bs4 import BeautifulSoup
 
-max_results = 5
-max_characters_per_result = 20000
+chars_per_token = 4
+tokens_per_result = 2000
+max_search_results = 10
+max_characters_per_result = tokens_per_result * chars_per_token
 
 GOOGLE_STRING = "google:"
 DUCKDUCKGO_STRING = "ddg:"
@@ -26,6 +27,22 @@ BING_STRING = "bing:"
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 Safari/537.36'}
 
 def input_modifier(input, state):
+    truncation_length = state['truncation_length']
+    max_seq_len = state['max_seq_len'] # exllama
+    max_new_tokens = state['max_new_tokens']
+
+    context_length = int(truncation_length) if int(max_seq_len) > int(truncation_length) else int(max_seq_len)
+    max_tokens = int(context_length) - int(max_new_tokens)
+
+    print(f'''
+          truncation_length:{truncation_length} 
+          max_seq_len:{max_seq_len} 
+          max_new_tokens:{max_new_tokens}; 
+          max_characters_per_result: {max_characters_per_result}
+          -> context_length: {context_length}
+          -> max_tokens:{max_tokens} 
+          ''')
+
     inputstring = input.strip()
 
     serp_string = None
@@ -46,13 +63,17 @@ def input_modifier(input, state):
     
     start_search = inputstring.find(serp_string)
     searchstring = inputstring[start_search+len(serp_string):].strip()
-    initial_prompt = inputstring[0:start_search]
+
+    if start_search == 0:
+      initial_prompt = inputstring[len(serp_string):]
+    else:
+      initial_prompt = inputstring[0:start_search]
 
     print(f"Performing web search: {searchstring}")
 
     params = {
         "q": searchstring,
-        "num": max_results,
+        "num": max_search_results,
         "api_key": os.getenv("SERPAPI_API_KEY")
     }
 
@@ -66,7 +87,6 @@ def input_modifier(input, state):
     links = [result['link'] for result in results['organic_results']]
     print(f"Found links from web search: {str(links)}")
 
-    count = 0
     texts = ''
     web_context = ''
 
@@ -75,37 +95,16 @@ def input_modifier(input, state):
       response = requests.get(result_url, headers=headers)
       soup = BeautifulSoup(response.content, 'html.parser')
       web_raw = soup.get_text().strip().replace('\n', ' ').replace('\r', '').replace('\t', '')
-      web_clean = call_llm(get_clean_prompt(initial_prompt, web_raw), state)
-      web_context = web_context + web_clean + '\n'
-      count += 1
+      web_raw = ' '.join(web_raw.split()) 
+      web_context += web_raw[0:max_characters_per_result] + '\n'
 
-      if count > max_results: 
+      if len(web_context)/chars_per_token >= max_tokens: 
+        print(f"breaking out early from web searches; rough token count: {len(web_context)/chars_per_token}, max_tokens: {max_tokens}")
         break
 
     texts += f"Given the following context, answer the user without making up facts.\n"
-    texts += f"Context: {web_context}\n"
-    texts += f"### User: {initial_prompt}"
+    texts += f"<<CONTEXT>>{web_context}<</CONTEXT>>\n"
+    texts += f"<<USER>>{initial_prompt}<</USER>>"
     # print(texts)
 
     return texts
-
-def get_clean_prompt(question: str, webpage_content: str) -> str:
-    webpage_content = webpage_content[0:max_characters_per_result]
-    review_prompt = f'''
-### Instruction: You are a cleaner bot, to prepare content scraped from a website. 
-You do NOT answer the question. Simply clean all of the original content.
-Keep any and all details, especially ones that may be relevant for follow-up questions.
-Provide all important content; simply clean the cruft associated with web page content and remove unnecessary whitespace.
-If the input content is nonsensical, just give an empty reply.\n
-Website content: {webpage_content}\n
-The extra important parts to keep are related to the question: {question}.
-### User: Please prepare the website content in full detail?
-### Response: '''
-    return review_prompt
-
-def call_llm(input_prompt: str, state: dict) -> str:
-    generator = generate_reply(input_prompt, state, is_chat=False)
-    final_answer = ''
-    for answer in generator:
-        final_answer = answer
-    return final_answer
