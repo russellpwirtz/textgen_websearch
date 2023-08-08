@@ -14,8 +14,10 @@ import os
 load_dotenv()
 import requests
 from bs4 import BeautifulSoup
+import modules.shared as shared
 
 chars_per_token = 4
+system_instruction_tokens = 50
 tokens_per_result = 2000
 max_search_results = 10
 max_characters_per_result = tokens_per_result * chars_per_token
@@ -32,7 +34,7 @@ def input_modifier(input, state):
     max_new_tokens = state['max_new_tokens']
 
     context_length = int(truncation_length) if int(max_seq_len) > int(truncation_length) else int(max_seq_len)
-    max_tokens = int(context_length) - int(max_new_tokens)
+    max_tokens = int(context_length) - int(max_new_tokens) - system_instruction_tokens
 
     print(f'''
           truncation_length:{truncation_length} 
@@ -87,7 +89,6 @@ def input_modifier(input, state):
     links = [result['link'] for result in results['organic_results']]
     print(f"Found links from web search: {str(links)}")
 
-    texts = ''
     web_context = ''
 
     for result_url in links:
@@ -98,13 +99,24 @@ def input_modifier(input, state):
       web_raw = ' '.join(web_raw.split()) 
       web_context += web_raw[0:max_characters_per_result] + '\n'
 
-      if len(web_context)/chars_per_token >= max_tokens: 
-        print(f"breaking out early from web searches; rough token count: {len(web_context)/chars_per_token}, max_tokens: {max_tokens}")
+      token_count = get_token_count(web_context)
+      print(f"Ongoing token count: {token_count}")
+      if token_count >= max_tokens: 
+        print(f"breaking out early from web searches; token count: {token_count}, max_tokens: {max_tokens}")
         break
 
-    texts += f"Given the following context, answer the user without making up facts.\n"
-    texts += f"<<CONTEXT>>{web_context}<</CONTEXT>>\n"
-    texts += f"<<USER>>{initial_prompt}<</USER>>"
-    # print(texts)
+    trim_index = len(web_context)-1
+    while (get_token_count(web_context) >= max_tokens):
+       trim_index -= 100
+       print(f"Trimming result to fit in context; trim_index: {trim_index}")
+       web_context = web_context[0:trim_index]
 
-    return texts
+    result_text = "Given the following context, answer the user without making up facts.\n"
+    result_text += f"<<CONTEXT>>{web_context}<</CONTEXT>>\n"
+    result_text += f"<<USER>>{initial_prompt}<</USER>>"
+
+    print(f"->> Input token length: {get_token_count(result_text)}")
+    return result_text
+
+def get_token_count(text):
+    return int(shared.tokenizer.encode(str(text)).shape[1])
