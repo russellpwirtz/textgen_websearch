@@ -1,5 +1,5 @@
 # textgen_websearch
-An extension for text-generation-webui to provide web searches as context. The web search results are provided as context for the LLM query. 
+An extension for text-generation-webui to provide web search results as context for the LLM query. 
 
 Possible seaerch engines:
 - `google:`
@@ -30,7 +30,7 @@ https://github.com/oobabooga/text-generation-webui
 
 ## Update search configuration
 - Open a command terminal, and change directory to the extension 
-> `cd text-generation-webui/extensions/textgen_websearch/`)
+> `cd text-generation-webui/extensions/textgen_websearch/`
 - rename .env.example to .env and update the API key value with your own. To generate your API key visit: https://serpapi.com/manage-api-key
 > `mv .env.example .env`\
 > `vim .env`
@@ -50,7 +50,7 @@ https://github.com/oobabooga/text-generation-webui
 > `--extension textgen_websearch`
 
 ## Start extension
-- Restart textgen-webui to enable extension
+- Restart `text-generation-webui` to enable extension
 
 ## Examples:
 `What should I wear for a short hike? google: Antartica weather tomorrow`
