@@ -68,7 +68,7 @@ Antarctica is currently foggy and quite cold, with a temperature of -23 °F (-30
 Linda Yaccarino is the current CEO of Twitter, replacing Elon Musk who remains in a senior role focused on product design and new technology.
 ```
 
-`ddg: what was the most recent supernova discovery?`
+`ddg: what was the most recent discovery by the James Webb telescope?`
 ```
 The most recent discovery by the James Webb Space Telescope was the observation of a nearby exoplanet named K2-18 b, which has abundant life-supporting molecules such as methane and carbon dioxide in its atmosphere. This discovery was announced in September 2023.
 ```
